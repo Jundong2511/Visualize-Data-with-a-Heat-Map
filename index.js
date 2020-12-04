@@ -1,89 +1,80 @@
-const width = 800, height = 1000, padding = 100;
-
+const width = d3.select("svg").attr("width")
+const height = d3.select("svg").attr("height")
+const colorDomain = ["#5E4FA2", "#3288BD", "#66C2A5", "#ABDDA4", "#E6F598",
+    "#FFFFBF", "#FEE08B", "#FDAE61", "#F46D43", "#D53E4F", "#9E0142"]
+const month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const req = new XMLHttpRequest();
 const url = "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json"
-
-const visionHolder = d3.select("body")
-    .append("div")
-    .attr("class", "visionHolder")
-    .attr("width", width)
-    .attr("height", height)
-
-const h1 = visionHolder
-    .append("h1")
-    .attr("id", "title")
-    .text("h1 tag here")
-    .append("text")
-    .attr("id", "description")
-    .text("description here")
-
-const svg = visionHolder
-    .append("svg")
-    .attr("class", "svg")
-    .attr("width", width - padding)
-    .attr("height", height - padding)
-
-const tooltip = visionHolder
+const svg = d3.select("svg")
+const margin = { top: 100, right: 100, bottom: 100, left: 40, }
+const innerWidth = width - margin.left - margin.right
+const innerHeight = height - margin.top - margin.bottom
+const tooltip = d3.select('body')
     .append('div')
     .attr('id', 'tooltip')
-    .attr('height', 100)
-    .attr('width', 100)
-    .style('opacity', 0)
+    .style('opacity', 1)
 
-const color = d3.scaleOrdinal(d3.schemePastel1)
+req.open("GET", url, true);
+req.onreadystatechange = function () {
+    if (req.readyState === 4 && req.status === 200) {
+        const data = (JSON.parse(req.responseText));
+        const monthlyVariance = data.monthlyVariance
+        const year = data.monthlyVariance.year
+        const month = data.monthlyVariance.month
+        const variance = data.monthlyVariance.variance
+        console.log(d3.schemePiYG[11])
+        const yScale = d3.scaleLinear()
+            .domain([d3.min(monthlyVariance, x => x.month - 0.5), d3.max(monthlyVariance, x => x.month + 0.5)])
+            .range([innerHeight, 0])
 
-fetch(url).then(response => response.json()).then(data => {
-    console.log(data)
+        const xScale = d3.scaleLinear()
+            .domain(d3.extent(monthlyVariance, x => x.year))
+            .range([0, innerWidth])
+        const colorScale = d3.scaleLinear()
+            .domain(d3.extent(monthlyVariance, x => x.variance))
+            .range([0, 1])
+        const rectsG = svg.append('g')
+            .attr('transform', `translate(${margin.left},${margin.top - 23})`);
+        const rects = rectsG.selectAll('rect')
+            .data(data.monthlyVariance)
+            .enter()
+            .append('rect')
+        rects
+            .attr('width', innerWidth / 3153 * 12)
+            .attr('height', innerHeight / 12)
+            .attr("y", d => yScale(d.month))
+            .attr("x", d => xScale(d.year))
+            .attr('fill', d => d3.interpolateTurbo(colorScale(d.variance)))
+        const axisG = svg.append("g")
+            .attr('transform', `translate(${margin.left},${margin.top})`);
+        const xAxis = d3.axisBottom(xScale)
+        // const yAxisScale = d3.scaleOrdinal()
+        //     .domain(colorDomain)
+        //     .range([innerHeight, 0])
+        const yAxis = d3.axisLeft(yScale)
+            .tickFormat(d3.timeFormat('%b'));
+
+        const xAxisG = axisG.append('g').call(xAxis)
+            .attr('transform', `translate(0,${innerHeight})`)
+        const yAxisG = axisG.append('g').call(yAxis)
+            .attr('transform', `translate(0,0)`);
 
 
-    const monthlyVariance = data.monthlyVariance
-
-    const xScale = d3.scaleLinear()
-        .domain(d3.extent(monthlyVariance, x => x.year))
-        .range([padding, width - padding])
-    const yScale = d3.scaleLinear()
-        .domain([d3.min(monthlyVariance, x => x.variance + data.baseTemperature), d3.max(monthlyVariance, x => x.variance + data.baseTemperature)])
-        .range([padding, height - padding])
-    const xAxis = d3.axisBottom(xScale)
-    const yAxis = d3.axisLeft(yScale)
-    svg.append('g')
-        .attr("id", "x-axis")
-        .attr('transform', 'translate(0,' + (height - padding) + ')')
-        .call(xAxis);
-    svg.append('g')
-        .attr("id", "y-axis")
-        .attr('transform', 'translate(' + padding + ',0)')
-        .call(yAxis)
-
-    // rect x depends on year, y depends on month, color depends on temperature 
-    const rect = svg.selectAll('rect')
-        .data(monthlyVariance)
-        .enter()
-        .append('rect')
-        .attr('class', 'cell')
-        .attr("width", 10)
-        .attr('height', 50)
-        .attr('data-temp', d => d.variance)
-        .attr('data-year', d => d.year)
-        .attr('data-month', d => d.month)
-    // .attr("fill",color)
-
-
-    const legend = visionHolder.append('g')
-        .attr('id', 'legend')
-    legend.selectAll('rect')
-        .data(color)
-        .enter()
-        .append('rect')
-        .attr("width", 30)
-        .attr('height', 30)
-        .attr('fill', color)
-
-        .on('mousemove', (event, d) => {
-            tooltip.style('opacity', 0.8)
-                .attr('data-year', d.monthlyVariance.year)
+        rects.on('mouseover', (event, d) => {
+            tooltip.transition()
+                .duration(0)
+                .style('opacity', 0.8)
+            tooltip.style("left", event.pageX + "px")
+                .style("top", event.pageY + 30 + "px")
+            tooltip.html(`year is ${d.year}<br>
+            ${d.month}<br>
+            Temperature: ${d3.format(".3")(d.variance + data.baseTemperature)} ℃
+            `)
         })
-        .on('mouseout', (event, d) => {
-            tooltip.style('opacity', 0)
-        })
-
-})
+            .on('mouseout', (event, d) => {
+                tooltip.transition().duration(0)
+                    .style('opacity', 0)
+            })
+    }
+}
+req.send()
