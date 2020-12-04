@@ -2,17 +2,17 @@ const width = d3.select("svg").attr("width")
 const height = d3.select("svg").attr("height")
 const colorDomain = ["#5E4FA2", "#3288BD", "#66C2A5", "#ABDDA4", "#E6F598",
     "#FFFFBF", "#FEE08B", "#FDAE61", "#F46D43", "#D53E4F", "#9E0142"]
-const month = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+const monthDomain = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
 const req = new XMLHttpRequest();
 const url = "https://raw.githubusercontent.com/freeCodeCamp/ProjectReferenceData/master/global-temperature.json"
 const svg = d3.select("svg")
-const margin = { top: 100, right: 100, bottom: 100, left: 40, }
+const margin = { top: 100, right: 150, bottom: 100, left: 150, }
 const innerWidth = width - margin.left - margin.right
 const innerHeight = height - margin.top - margin.bottom
 const tooltip = d3.select('body')
     .append('div')
     .attr('id', 'tooltip')
-    .style('opacity', 1)
+    .style('opacity', 0)
 
 req.open("GET", url, true);
 req.onreadystatechange = function () {
@@ -48,11 +48,10 @@ req.onreadystatechange = function () {
         const axisG = svg.append("g")
             .attr('transform', `translate(${margin.left},${margin.top})`);
         const xAxis = d3.axisBottom(xScale)
-        // const yAxisScale = d3.scaleOrdinal()
-        //     .domain(colorDomain)
-        //     .range([innerHeight, 0])
-        const yAxis = d3.axisLeft(yScale)
-            .tickFormat(d3.timeFormat('%b'));
+        const yAxisScale = d3.scaleBand()
+            .domain(monthDomain)
+            .range([innerHeight, 0])
+        const yAxis = d3.axisLeft(yAxisScale)
 
         const xAxisG = axisG.append('g').call(xAxis)
             .attr('transform', `translate(0,${innerHeight})`)
@@ -64,12 +63,12 @@ req.onreadystatechange = function () {
             tooltip.transition()
                 .duration(0)
                 .style('opacity', 0.8)
-            tooltip.style("left", event.pageX + "px")
+            tooltip.style("left", event.pageX + 30 + "px")
                 .style("top", event.pageY + 30 + "px")
-            tooltip.html(`year is ${d.year}<br>
-            ${d.month}<br>
+            tooltip.html(`${d.year} <br>
+                ${monthDomain[d.month - 1]} <br>
             Temperature: ${d3.format(".3")(d.variance + data.baseTemperature)} ℃
-            `)
+                `)
         })
             .on('mouseout', (event, d) => {
                 tooltip.transition().duration(0)
